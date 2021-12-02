@@ -1,8 +1,8 @@
 #include <stdint.h>
 #include <pru_intc.h>
 #include <pru_rpmsg.h>
-#include "resource_table.h"
-#include "intc_map_1.h"
+#include "../resource_table.h"
+#include "intc_map_0.h"
 
 extern void asm_count(uint32_t *data_ptr);
 
