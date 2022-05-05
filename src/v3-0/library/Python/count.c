@@ -11,6 +11,11 @@
 char pru0_buf[MAX_BUFFER_SIZE];
 char pru1_buf[MAX_BUFFER_SIZE];
 
+static PyObject *dummy_method(PyObject *self, PyObject *args) {
+    // Dummy method, here for backwards compatibility
+    Py_RETURN_TRUE;
+}
+
 static PyObject *count_pru(PyObject *self, PyObject *args) {
     struct pollfd pfd;
     uint8_t pru, wr_stat;
@@ -126,7 +131,10 @@ static PyObject *count_both(PyObject *self, PyObject *args) {
 
 static PyMethodDef CountMethod[] = {
     {"count_pru", count_pru, METH_VARARGS, "Python interface for CountingPRU's counting function (single PRU)"},
-    {"count_both", count_both, METH_VARARGS, "Python interface for CountingPRU's counting function (both PRUs)"},
+    {"count_both_prus", count_both, METH_VARARGS, "Python interface for CountingPRU's counting function (both PRUs)"},
+    {"Counting", count_both, METH_VARARGS, "Python interface for CountingPRU's counting function (both PRUs) (backwards compatible name)"},
+    {"Init", dummy_method, METH_VARARGS, "Method meant for bbb-function backwards compatibility, doesn't do anything"},
+    {"Close", dummy_method, METH_VARARGS, "Method meant for bbb-function backwards compatibility, doesn't do anything"},
     {NULL, NULL, 0, NULL}
 };
 
@@ -141,4 +149,5 @@ static struct PyModuleDef countingpru_module = {
 PyMODINIT_FUNC PyInit_CountingPRU(void) {
     return PyModule_Create(&countingpru_module);
 }
+
 
