@@ -31,7 +31,7 @@ $(OUT):
 	$(CC) $(CFLAGS) $< --output_file $@
 
 $(OUT)/pru1.out: $(ASM_PROGS) $(PROGS)
-	$(LD) $(LDFLAGS) $^ --library=../rpmsg_lib.lib -o $@
+	$(LD) $(LDFLAGS) $^ --library=../rpmsg_lib.lib -i/usr/share/ti/cgt-pru/lib -o $@
 
 clean:
 	rm -rf $(OUT) $(ASM_PROGS) $(PROGS)
