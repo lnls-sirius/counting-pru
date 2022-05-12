@@ -1,6 +1,6 @@
 PRU_SWPKG = /usr/lib/ti/pru-software-support-package
 
-OUT = ../../../../bin
+OUT = ../../bin
 
 all: directories $(OUT)/pru0.out $(OUT)/pru1.out
 
