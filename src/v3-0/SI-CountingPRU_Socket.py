@@ -286,4 +286,4 @@ net.start()
 # Counting list stores countings/second, multiplied by 1000
 while 1:
     CurrentTimeBase = TimeBase
-    Counting = [1000 * value / float(CurrentTimeBase) for value in count_both(int(CurrentTimeBase*1000000))]
+    Counting = [1000 * value / float(CurrentTimeBase) for value in count_both(int(CurrentTimeBase))]
