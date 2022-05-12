@@ -1,4 +1,5 @@
 PRU_SWPKG = /usr/lib/ti/pru-software-support-package
+PRU_CGT = /usr/share/ti/cgt-pru
 
 CC = clpru
 LD = lnkpru

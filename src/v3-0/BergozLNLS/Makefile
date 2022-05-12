@@ -1,4 +1,5 @@
 PRU_SWPKG = /usr/lib/ti/pru-software-support-package
+PRU_CGT = /usr/share/ti/cgt-pru
 
 CC = clpru
 LD = lnkpru
@@ -32,6 +33,8 @@ $(OUT):
 
 $(OUT)/pru0.out: $(ASM_PROGS) $(PROGS)
 	$(LD) $(LDFLAGS) $^ --library=../rpmsg_lib.lib -i/usr/share/ti/cgt-pru/lib -o $@
+
+
 
 clean:
 	rm -rf $(OUT) $(ASM_PROGS) $(PROGS)
