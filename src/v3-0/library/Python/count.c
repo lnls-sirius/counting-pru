@@ -19,10 +19,10 @@ static PyObject *dummy_method(PyObject *self, PyObject *args) {
 static PyObject *count_pru(PyObject *self, PyObject *args) {
     struct pollfd pfd;
     uint8_t pru, wr_stat;
-    uint32_t time_base;
+    float time_base;
     PyObject* py_counts = PyList_New(4);
 
-    if(!PyArg_ParseTuple(args, "Ih", &time_base, &pru)) return NULL;
+    if(!PyArg_ParseTuple(args, "fh", &time_base, &pru)) return NULL;
 
     if (pru > 1) {
         PyErr_SetString(PyExc_ValueError, "Invalid PRU selected (only PRUs 0 and 1 are available)");
@@ -43,12 +43,14 @@ static PyObject *count_pru(PyObject *self, PyObject *args) {
         return NULL;
     }
 
+    Py_BEGIN_ALLOW_THREADS
     wr_stat = write(pfd.fd, "-", 2) == -1;
-    usleep(time_base-400); // There is a 400 us offset
+    usleep((int)(1000000.0f*time_base)-400); // There is a 400 us offset
     if (wr_stat || write(pfd.fd, "-", 2) == -1) {
         PyErr_SetString(PyExc_IOError, "Cannot communicate with selected PRU");
         return NULL;
     }
+    Py_END_ALLOW_THREADS
 
     if (read(pfd.fd, pru0_buf, MAX_BUFFER_SIZE))
     {
@@ -71,10 +73,10 @@ static PyObject *count_pru(PyObject *self, PyObject *args) {
 static PyObject *count_both(PyObject *self, PyObject *args) {
     struct pollfd pfd0, pfd1;
     uint8_t wr_stat;
-    uint32_t time_base;
+    float time_base;
     PyObject* py_counts = PyList_New(8);
 
-    if(!PyArg_ParseTuple(args, "I", &time_base)) return NULL;
+    if(!PyArg_ParseTuple(args, "f", &time_base)) return NULL;
 
     pfd0.fd = open(DEVICE_NAME0, O_RDWR);
     pfd1.fd = open(DEVICE_NAME1, O_RDWR);
@@ -84,13 +86,16 @@ static PyObject *count_both(PyObject *self, PyObject *args) {
         return NULL;
     }
 
+    Py_BEGIN_ALLOW_THREADS
     wr_stat = write(pfd0.fd, "-", 2) == -1;
     wr_stat |= write(pfd1.fd, "-", 2) == -1;
 
-    usleep(time_base-400); // There is a 400 us offset
+    usleep((int)(1000000.0f*time_base)-400); // There is a 400 us offset
 
     wr_stat |= write(pfd0.fd, "-", 2) == -1;
     wr_stat |= write(pfd1.fd, "-", 2) == -1;
+    Py_END_ALLOW_THREADS
+    
     if (wr_stat) {
         PyErr_SetString(PyExc_IOError, "Cannot communicate with PRUs");
         return NULL;
