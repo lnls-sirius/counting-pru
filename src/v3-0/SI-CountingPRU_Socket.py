@@ -9,12 +9,8 @@ import socket
 import struct
 from threading import Thread
 import Adafruit_BBIO.GPIO as GPIO
-from CountingPRU import count_pru, count_both
+import CountingPRU
 import redis
-import queue
-import threading
-#from functools import partial
-#from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Variable for timebase counting and Serial Numbers
 global TimeBase, SerialNumber
@@ -26,15 +22,15 @@ redis_db = redis.StrictRedis(host="127.0.0.1", port=6379)
 
 # Get value from Redis key. If does not exist, create it.
 if not redis_db.exists("TimeBase"):
-    sys.stdout.write("Creating TimeBase variable\n")
-    sys.stdout.flush()
+    print("Creating TimeBase variable\n")
+
     redis_db.set("TimeBase", 60)
     redis_db.save()
 
 # If TimeBase is zero, set it to a different value
 if float(redis_db.get("TimeBase")) == 0:
-    sys.stdout.write("TimeBase was zero. Set it to a reasonable value: 60.\n")
-    sys.stdout.flush()
+    print("TimeBase was zero. Set it to a reasonable value: 60.\n")
+
     redis_db.set("TimeBase", 60)
     redis_db.save()
 
@@ -61,8 +57,8 @@ for pin in Inhibit:
 
 
 # Error Codes - bsmp
-COMMAND_OK = 0xe0
-ERROR_READ_ONLY = 0xe6
+COMMAND_OK = 0xE0
+ERROR_READ_ONLY = 0xE6
 
 
 # Datetime string
@@ -76,8 +72,8 @@ def includeChecksum(list_values) -> list:
     while i < len(list_values):
         counter += list_values[i]
         i += 1
-    counter = counter & 0xff
-    counter = (256 - counter) & 0xff
+    counter = counter & 0xFF
+    counter = (256 - counter) & 0xFF
     return bytes(list_values + [counter])
 
 
@@ -87,7 +83,7 @@ def verifyChecksum(list_values):
     while i < len(list_values):
         counter += list_values[i]
         i += 1
-    counter = counter & 0xff
+    counter = counter & 0xFF
     return counter
 
 
@@ -98,7 +94,7 @@ def sendVariable(variableID, value, size) -> bytes:
     if size == 1:
         send_message.append(value)
     elif size == 2:
-        send_message += struct.pack("!h", value)
+        send_message += struct.pack("!h", int(value))
     elif size == 4:
         send_message += struct.pack("!I", int(value))
     return includeChecksum(send_message)
@@ -136,20 +132,20 @@ class Communication(Thread):
                 # TCP/IP socket initialization
                 self.tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.tcp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                self.tcp.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                 self.tcp.bind(("", self.port))
                 self.tcp.listen(1)
-                sys.stdout.write(time_string() + "TCP/IP Server on port " + str(self.port) + " started.\n")
-                sys.stdout.write(time_string() + "Timebase: {}.\n".format(TimeBase))
-                sys.stdout.flush()
+                print(time_string() + "TCP/IP Server on port " + str(self.port) + " started.\n")
+                print(time_string() + "Timebase: {}.\n".format(TimeBase))
 
                 while True:
 
-                    sys.stdout.write(time_string() + "Waiting for connection.\n")
-                    sys.stdout.flush()
+                    print(time_string() + "Waiting for connection.\n")
+
                     con, client_info = self.tcp.accept()
 
                     # New connection
-                    sys.stdout.write(
+                    print(
                         time_string()
                         + "Connection accepted from "
                         + client_info[0]
@@ -157,7 +153,6 @@ class Communication(Thread):
                         + str(client_info[1])
                         + ".\n"
                     )
-                    sys.stdout.flush()
 
                     while True:
                         # Get message
@@ -211,8 +206,7 @@ class Communication(Thread):
                                         except:
                                             pass
                                         con.send(sendMessage(COMMAND_OK))
-                                        sys.stdout.write(time_string() + "Write time base " + str(TimeBase) + " \n")
-                                        sys.stdout.flush()
+                                        print(time_string() + "Write time base " + str(TimeBase) + " \n")
                                     # Counting channels
                                     elif message[4] <= 0x08:
                                         con.send(sendMessage(ERROR_READ_ONLY))
@@ -221,10 +215,7 @@ class Communication(Thread):
                                         for i in range(4):
                                             GPIO.output(Inhibit[list(Inhibit.keys())[i]], bool(message[5] & (1 << i)))
                                         con.send(sendMessage(COMMAND_OK))
-                                        sys.stdout.write(
-                                            time_string() + "Write Inhibits to " + bin(message[5] & 0x0f) + " \n"
-                                        )
-                                        sys.stdout.flush()
+                                        print(time_string() + "Write Inhibits to " + bin(message[5] & 0x0F) + " \n")
 
                                     # SerialNumbers
                                     elif message[4] >= 11 and message[4] <= 18:
@@ -238,22 +229,20 @@ class Communication(Thread):
                                         except:
                                             pass
                                         con.send(sendMessage(COMMAND_OK))
-                                        sys.stdout.write(
+                                        print(
                                             time_string()
                                             + "Write SN {} to device attached to ch {}\n".format(
                                                 message[5], BSMP_ID_SERIALNUMBER_CHANNEL[message[4]]
                                             )
                                         )
-                                        sys.stdout.flush()
 
                             else:
-                                sys.stdout.write(time_string() + "Unknown message\n")
-                                sys.stdout.flush()
+                                print(time_string() + "Unknown message\n")
                                 continue
 
                         else:
                             # Disconnection
-                            sys.stdout.write(
+                            print(
                                 time_string()
                                 + "Client "
                                 + client_info[0]
@@ -261,16 +250,14 @@ class Communication(Thread):
                                 + str(client_info[1])
                                 + " disconnected.\n"
                             )
-                            sys.stdout.flush()
                             break
 
             except Exception:
                 self.tcp.close()
-                sys.stdout.write(time_string() + "Connection problem. TCP/IP server was closed. Error:\n\n")
+                print(time_string() + "Connection problem. TCP/IP server was closed. Error:\n")
                 traceback.print_exc(file=sys.stdout)
-                sys.stdout.write("\n")
-                sys.stdout.flush()
                 time.sleep(5)
+
 
 # --------------------- MAIN LOOP ---------------------
 # -------------------- starts here --------------------
@@ -286,4 +273,4 @@ net.start()
 # Counting list stores countings/second, multiplied by 1000
 while 1:
     CurrentTimeBase = TimeBase
-    Counting = [1000 * value / float(CurrentTimeBase) for value in count_both(int(CurrentTimeBase*1000000))]
+    Counting = [1000 * value / float(CurrentTimeBase) for value in CountingPRU.Counting(int(CurrentTimeBase))]

@@ -40,6 +40,8 @@ void main(void)
     uint16_t src, dst, len;
     volatile uint8_t *status;
     uint32_t data[4];
+    
+    CT_CFG.SYSCFG_bit.STANDBY_INIT = 0;
 
     // Clear the status of the PRU-ICSS system event that the ARM will use to 'kick' us
     CT_INTC.SICR_bit.STS_CLR_IDX = FROM_ARM_HOST;

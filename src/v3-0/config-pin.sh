@@ -1,6 +1,7 @@
 #!/bin/bash
 
-cp /root/counting-pru/bin/pru*.out /lib/firmware/
+echo stop > /sys/class/remoteproc/remoteproc1/state
+echo stop > /sys/class/remoteproc/remoteproc2/state
 
 echo pru0.out > /sys/class/remoteproc/remoteproc1/firmware
 echo pru1.out > /sys/class/remoteproc/remoteproc2/firmware

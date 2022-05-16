@@ -7,7 +7,7 @@ echo "Installing Debian $DEBIAN_VERSION version..."
 
 if [ $DEBIAN_VERSION -gt 9 ]; then
     echo "Fetching binaries..."
-    make -C v3-0/library
+    make -C v3-0
 
     echo "Installing Python library..."
     cd v3-0/library/Python/

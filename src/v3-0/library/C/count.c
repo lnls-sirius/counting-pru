@@ -27,7 +27,7 @@ int8_t count_pru(uint32_t time_base, uint8_t pru, uint32_t *data) {
     if (pfd.fd < 0) return -1;
 
     wr_stat = write(pfd.fd, "-", 2) == -1;
-    usleep(time_base-400); // There is a 400 us offset
+    usleep(time_base*10E6-400); // There is a 400 us offset
     if(wr_stat || write(pfd.fd, "-", 2) == -1) return -1;
 
     if (read(pfd.fd, readBuf, MAX_BUFFER_SIZE))
