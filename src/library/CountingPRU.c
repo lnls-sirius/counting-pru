@@ -120,6 +120,44 @@ void Counting(float time_base, uint32_t *data){
 }
 
 
+void Counting_ms(long time_base, uint32_t *data){
+
+        int i;
+        struct timespec ts;
+        ts.tv_sec = time_base / 1000;
+        ts.tv_nsec = (time_base % 1000) * 1000000;
+
+        // ----- Says it is time to start counting
+        prudata[0] = START;
+
+        // ----- Delay: pre-defined Time Base
+        nanosleep(&ts, &ts);
+
+        // ----- Says it is time to stop counting
+        prudata[0] = STOP;
+
+
+        // ----- Wait until values of both counters are available in shared RAM
+        while(prudata[1] != 0x55){
+        }
+        while(prudata[2] != 0x55){
+        }
+
+
+        // ----- Get counting values
+        for(i=1; i<=8; i++)
+                data[i-1] = (prudata[(i*4)+3]<<24) + (prudata[(i*4)+2]<<16) + (prudata[(i*4)+1]<<8) + (prudata[(i*4)]);
+
+
+        // ----- Counting values successfully copied
+        prudata[1] = 0;
+        prudata[2] = 0;
+
+
+        return;
+}
+
+
 void close_PRU(){
 	// ----- Disables PRU and closes shared RAM memory mapping
 	prussdrv_pru_disable(PRU_LNLS);

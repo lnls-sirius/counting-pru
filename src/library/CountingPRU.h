@@ -56,12 +56,21 @@ int init_start_PRU();
 
 
 
-/* COUNTING PULSES
+/* COUNTING PULSES - Seconds
  * --Parameters--
- * time_base:	Time base for counting pulses, in seconds
+ * time_base:	Time base for counting pulses, in SECONDS
  * Data:		8-position vector for storing counter values
 */
 void Counting(float time_base, uint32_t *data);
+
+
+
+/* COUNTING PULSES - milisseconds
+ * --Parameters--
+ * time_base:	Time base for counting pulses, in MILISSECONDS
+ * Data:		8-position vector for storing counter values
+*/
+void Counting_ms(long time_base, uint32_t *data);
 
 
 

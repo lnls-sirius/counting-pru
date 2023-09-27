@@ -48,7 +48,8 @@ def Init():
     libCountingPRU.init_start_PRU()
 
 
-# ----- COUNTING PULSES
+
+# ----- COUNTING PULSES [s]
 # time_base: counting time base, in seconds
 def Counting(time_base):
     libCountingPRU.Counting(ctypes.c_float(time_base), ctypes.byref(count_buffer))
@@ -56,6 +57,19 @@ def Counting(time_base):
     for i in range (8):
         answer.append(count_buffer[i])
     return answer
+
+
+
+# ----- COUNTING PULSES [ms]
+# time_base: counting time base, in MILISSECONDS
+def Counting_ms(time_base):
+    libCountingPRU.Counting_ms(ctypes.c_long(time_base), ctypes.byref(count_buffer))
+    answer = []
+    for i in range (8):
+        answer.append(count_buffer[i])
+    return answer
+
+
 
 
 # ----- CLOSING PRU
