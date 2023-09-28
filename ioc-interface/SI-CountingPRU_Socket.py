@@ -165,7 +165,7 @@ class Communication(Thread):
                                 if message[1] == 0x10:
                                     # TimeBase
                                     if message[4] == 0x00:
-                                        con.send(sendVariable(message[4], TimeBase, 2))
+                                        con.send(sendVariable(message[4], int(TimeBase), 2))
                                     elif message[4] <= 0x08:
                                         con.send(sendVariable(message[4], Counting[message[4] - 1], 4))
 
