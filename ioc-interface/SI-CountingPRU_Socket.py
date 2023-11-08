@@ -165,7 +165,7 @@ class Communication(Thread):
         self.port = port
 
     def run(self):
-        global globalTimeBase, countingChannel
+        global globalTimeBase, minTimebase, countingChannel
         while True:
             try:
 
@@ -198,7 +198,7 @@ class Communication(Thread):
                                 if message[1] == 0x10:
                                     # globalTimeBase
                                     if message[4] == 0x00:
-                                        con.send(sendVariable(message[4], int(globalTimeBase), 2))
+                                        con.send(sendVariable(message[4], int(globalTimeBase/1000), 2))
 
                                     # Countings
                                     elif message[4] <= 0x08:
@@ -232,13 +232,18 @@ class Communication(Thread):
                                 elif message[1] == 0x20:
                                     # Global TimeBase
                                     if message[4] == 0x00:
-                                        tbase = (message[5] << 8) + message[6] #(message[5] << 24) + (message[6] << 16) + (message[7] << 8) + message[8]
+                                        tbase = 1000*((message[5] << 8) + message[6]) #(message[5] << 24) + (message[6] << 16) + (message[7] << 8) + message[8]
                                         if tbase < TIMEBASE_MIN_VALUE:
                                             tbase = TIMEBASE_MIN_VALUE
-                                
                                         globalTimeBase = tbase
                                         minTimebase = tbase
                                         redis_db.set("globalTimebase", tbase)
+                                        # Reply for individual timebases
+                                        for channel in countingChannel.keys():
+                                            countingChannel[channel]["currenTimebase"] = tbase
+                                            countingChannel[channel]["countingList"] = []
+                                            countingChannel[channel]["timebaseList"] = []
+                                            redis_db.hset("Timebase", channel, tbase)
                                         try:
                                             redis_db.save()
                                         except:
@@ -278,8 +283,8 @@ class Communication(Thread):
                                         if tbase < TIMEBASE_MIN_VALUE:
                                             tbase = TIMEBASE_MIN_VALUE
                                         countingChannel[channel]["currenTimebase"] = tbase
-                                        countingChannel[ch]["countingList"] = []
-                                        countingChannel[ch]["timebaseList"] = []
+                                        countingChannel[channel]["countingList"] = []
+                                        countingChannel[channel]["timebaseList"] = []
                                         redis_db.hset("Timebase", channel, tbase)
                                         try:
                                             redis_db.save()
@@ -338,7 +343,9 @@ while True:
         countingChannel[ch]["countingList"].append(values[ch])
         countingChannel[ch]["timebaseList"].append(minTimebase)
         if(sum(countingChannel[ch]["timebaseList"]) >= countingChannel[ch]["currentTimebase"]):
-            countingChannel[ch]["lastCounting"] = sum(countingChannel[ch]["countingList"])/(0.001*sum(countingChannel[ch]["timebaseList"]))
+            # Multiplied x1000 in order to convert float to int (previous defined type for bsmp variable).
+            # Reverse operation is performed by IOC (final value is a floating number)
+            countingChannel[ch]["lastCounting"] = 1000*sum(countingChannel[ch]["countingList"])/(0.001*sum(countingChannel[ch]["timebaseList"]))
 
             countingChannel[ch]["countingList"] = []
             countingChannel[ch]["timebaseList"] = []
