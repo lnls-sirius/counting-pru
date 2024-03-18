@@ -179,136 +179,148 @@ class Communication(Thread):
                 sys.stdout.flush()
 
                 while True:
-
-                    sys.stdout.write(time_string() + "Waiting for connection.\n")
-                    sys.stdout.flush()
-                    con, client_info = self.tcp.accept()
-
-                    # New connection
-                    sys.stdout.write(time_string() + "Connection accepted from {}:{}.\n".format(client_info[0], client_info[1]))
-                    sys.stdout.flush()
-
-                    while True:
-                        # Get message
-                        message = con.recv(100)
-                        if message:
-                            if verifyChecksum(message) == 0:
-
-                                # Variable Read
-                                if message[1] == 0x10:
-                                    # globalTimeBase
-                                    if message[4] == 0x00:
-                                        con.send(sendVariable(message[4], int(globalTimeBase/1000), 2))
-
-                                    # Countings
-                                    elif message[4] <= 0x08:
-                                        con.send(sendVariable(message[4], countingChannel[message[4] - 1]["lastCounting"], 4))
-
-                                    # Inhibit pins - 8 bits: X X X X B2 A2 B1 A1
-                                    elif message[4] == 0x09:
-                                        inh_value = 0
-                                        for i in range(4):
-                                            inh_value += GPIO.input(Inhibit[list(Inhibit.keys())[i]]) * (2 ** i)
-                                        con.send(sendVariable(message[4], inh_value, 1))
-
-                                    # SerialNumbers
-                                    elif message[4] >= 11 and message[4] <= 18:
-                                        snumber = int(redis_db.hget("DetectorSerialNumber",BSMP_ID_SERIALNUMBER_CHANNEL[message[4]]))
-                                        con.send(sendVariable(message[4],snumber,1))
-
-                                    # Individual TimeBase
-                                    elif message[4] >= 0x21 and message[4] <= 0x28:
-                                        channel = message[4] - 0x21
-                                        tbase = countingChannel[channel]["currenTimebase"]
-                                        con.send(sendVariable(message[4],tbase,2))
-
-                                # Group Read
-                                elif message[1] == 0x12:
-                                    if message[4] == 0x01:
-                                        Counting = [int(countingChannel[ch]["lastCounting"]) for ch in countingChannel.keys()]
-                                        con.send(sendGroup(message[4], Counting, len(Counting) * 4))
-
-                                # Variable Write
-                                elif message[1] == 0x20:
-                                    # Global TimeBase
-                                    if message[4] == 0x00:
-                                        tbase = 1000*((message[5] << 8) + message[6]) #(message[5] << 24) + (message[6] << 16) + (message[7] << 8) + message[8]
-                                        if tbase < TIMEBASE_MIN_VALUE:
-                                            tbase = TIMEBASE_MIN_VALUE
-                                        globalTimeBase = tbase
-                                        minTimebase = tbase
-                                        redis_db.set("globalTimebase", tbase)
-                                        # Reply for individual timebases
-                                        for channel in countingChannel.keys():
+                    try:
+                        sys.stdout.write(time_string() + "Waiting for connection.\n")
+                        sys.stdout.flush()
+                        con, client_info = self.tcp.accept()
+                        
+                        con.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1) # Enable KeepAlive functionality
+                        con.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1) # Wait 1 sec before testing keepalive
+                        con.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3) # Retry keepalive after 3 secs
+                        con.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3) # Retry keepalive 3 times
+                        
+    
+                        # New connection
+                        sys.stdout.write(time_string() + "Connection accepted from {}:{}.\n".format(client_info[0], client_info[1]))
+                        sys.stdout.flush()
+    
+                        while True:
+                            # Get message
+                            message = con.recv(100)
+                            if message:
+                                if verifyChecksum(message) == 0:
+    
+                                    # Variable Read
+                                    if message[1] == 0x10:
+                                        # globalTimeBase
+                                        if message[4] == 0x00:
+                                            con.send(sendVariable(message[4], int(globalTimeBase/1000), 2))
+    
+                                        # Countings
+                                        elif message[4] <= 0x08:
+                                            con.send(sendVariable(message[4], countingChannel[message[4] - 1]["lastCounting"], 4))
+    
+                                        # Inhibit pins - 8 bits: X X X X B2 A2 B1 A1
+                                        elif message[4] == 0x09:
+                                            inh_value = 0
+                                            for i in range(4):
+                                                inh_value += GPIO.input(Inhibit[list(Inhibit.keys())[i]]) * (2 ** i)
+                                            con.send(sendVariable(message[4], inh_value, 1))
+    
+                                        # SerialNumbers
+                                        elif message[4] >= 11 and message[4] <= 18:
+                                            snumber = int(redis_db.hget("DetectorSerialNumber",BSMP_ID_SERIALNUMBER_CHANNEL[message[4]]))
+                                            con.send(sendVariable(message[4],snumber,1))
+    
+                                        # Individual TimeBase
+                                        elif message[4] >= 0x21 and message[4] <= 0x28:
+                                            channel = message[4] - 0x21
+                                            tbase = countingChannel[channel]["currenTimebase"]
+                                            con.send(sendVariable(message[4],tbase,2))
+    
+                                    # Group Read
+                                    elif message[1] == 0x12:
+                                        if message[4] == 0x01:
+                                            Counting = [int(countingChannel[ch]["lastCounting"]) for ch in countingChannel.keys()]
+                                            con.send(sendGroup(message[4], Counting, len(Counting) * 4))
+    
+                                    # Variable Write
+                                    elif message[1] == 0x20:
+                                        # Global TimeBase
+                                        if message[4] == 0x00:
+                                            tbase = 1000*((message[5] << 8) + message[6]) #(message[5] << 24) + (message[6] << 16) + (message[7] << 8) + message[8]
+                                            if tbase < TIMEBASE_MIN_VALUE:
+                                                tbase = TIMEBASE_MIN_VALUE
+                                            globalTimeBase = tbase
+                                            minTimebase = tbase
+                                            redis_db.set("globalTimebase", tbase)
+                                            # Reply for individual timebases
+                                            for channel in countingChannel.keys():
+                                                countingChannel[channel]["currenTimebase"] = tbase
+                                                countingChannel[channel]["countingList"] = []
+                                                countingChannel[channel]["timebaseList"] = []
+                                                redis_db.hset("Timebase", channel, tbase)
+                                            try:
+                                                redis_db.save()
+                                            except:
+                                                pass
+                                            con.send(sendMessage(COMMAND_OK))
+                                            sys.stdout.write(time_string() + "Write global timebase to {}\n".format(tbase))
+                                            sys.stdout.flush()
+    
+                                        # Counting channels
+                                        elif message[4] <= 0x08:
+                                            con.send(sendMessage(ERROR_READ_ONLY))
+    
+                                        # Inhibit pins - 8 bits: X X X X B2 A2 B1 A1
+                                        elif message[4] == 0x09:
+                                            for i in range(4):
+                                                GPIO.output(Inhibit[list(Inhibit.keys())[i]], bool(message[5] & (1 << i)))
+                                            con.send(sendMessage(COMMAND_OK))
+                                            sys.stdout.write(time_string() + "Write Inhibits to " + bin(message[5] & 0x0f) + " \n")
+                                            sys.stdout.flush()
+    
+                                        # SerialNumbers
+                                        elif message[4] >= 11 and message[4] <= 18:
+                                            redis_db.hset("DetectorSerialNumber", BSMP_ID_SERIALNUMBER_CHANNEL[message[4]], message[5])
+                                            try:
+                                                redis_db.save()
+                                            except:
+                                                pass
+                                            con.send(sendMessage(COMMAND_OK))
+                                            sys.stdout.write(time_string() + "Write SN {} to device attached to ch {}\n".format(message[5], BSMP_ID_SERIALNUMBER_CHANNEL[message[4]]))
+                                            sys.stdout.flush()
+    
+    
+                                        # Individual TimeBases
+                                        elif message[4] >= 0x21 and message[4] <= 0x28:
+                                            channel = message[4] - 0x21
+                                            tbase = (message[5] << 8) + message[6]
+                                            if tbase < TIMEBASE_MIN_VALUE:
+                                                tbase = TIMEBASE_MIN_VALUE
                                             countingChannel[channel]["currenTimebase"] = tbase
                                             countingChannel[channel]["countingList"] = []
                                             countingChannel[channel]["timebaseList"] = []
                                             redis_db.hset("Timebase", channel, tbase)
-                                        try:
-                                            redis_db.save()
-                                        except:
-                                            pass
-                                        con.send(sendMessage(COMMAND_OK))
-                                        sys.stdout.write(time_string() + "Write global timebase to {}\n".format(tbase))
-                                        sys.stdout.flush()
-
-                                    # Counting channels
-                                    elif message[4] <= 0x08:
-                                        con.send(sendMessage(ERROR_READ_ONLY))
-
-                                    # Inhibit pins - 8 bits: X X X X B2 A2 B1 A1
-                                    elif message[4] == 0x09:
-                                        for i in range(4):
-                                            GPIO.output(Inhibit[list(Inhibit.keys())[i]], bool(message[5] & (1 << i)))
-                                        con.send(sendMessage(COMMAND_OK))
-                                        sys.stdout.write(time_string() + "Write Inhibits to " + bin(message[5] & 0x0f) + " \n")
-                                        sys.stdout.flush()
-
-                                    # SerialNumbers
-                                    elif message[4] >= 11 and message[4] <= 18:
-                                        redis_db.hset("DetectorSerialNumber", BSMP_ID_SERIALNUMBER_CHANNEL[message[4]], message[5])
-                                        try:
-                                            redis_db.save()
-                                        except:
-                                            pass
-                                        con.send(sendMessage(COMMAND_OK))
-                                        sys.stdout.write(time_string() + "Write SN {} to device attached to ch {}\n".format(message[5], BSMP_ID_SERIALNUMBER_CHANNEL[message[4]]))
-                                        sys.stdout.flush()
-
-
-                                    # Individual TimeBases
-                                    elif message[4] >= 0x21 and message[4] <= 0x28:
-                                        channel = message[4] - 0x21
-                                        tbase = (message[5] << 8) + message[6]
-                                        if tbase < TIMEBASE_MIN_VALUE:
-                                            tbase = TIMEBASE_MIN_VALUE
-                                        countingChannel[channel]["currenTimebase"] = tbase
-                                        countingChannel[channel]["countingList"] = []
-                                        countingChannel[channel]["timebaseList"] = []
-                                        redis_db.hset("Timebase", channel, tbase)
-                                        try:
-                                            redis_db.save()
-                                        except:
-                                            pass
-
-                                        minTimebase = np.gcd.reduce([int(countingChannel[ch]["currentTimebase"]) for ch in countingChannel.keys()])
-                                        if minTimebase < TIMEBASE_MIN_GCD_VALUE:
-                                            minTimebase = TIMEBASE_MIN_GCD_VALUE
-
-                                        con.send(sendMessage(COMMAND_OK))
-                                        sys.stdout.write(time_string() + "Write timebase for channel {} as {}\n".format(tbase))
-                                        sys.stdout.flush()
-
+                                            try:
+                                                redis_db.save()
+                                            except:
+                                                pass
+    
+                                            minTimebase = np.gcd.reduce([int(countingChannel[ch]["currentTimebase"]) for ch in countingChannel.keys()])
+                                            if minTimebase < TIMEBASE_MIN_GCD_VALUE:
+                                                minTimebase = TIMEBASE_MIN_GCD_VALUE
+    
+                                            con.send(sendMessage(COMMAND_OK))
+                                            sys.stdout.write(time_string() + "Write timebase for channel {} as {}\n".format(tbase))
+                                            sys.stdout.flush()
+    
+                                else:
+                                    sys.stdout.write(time_string() + "Unknown message\n")
+                                    sys.stdout.flush()
+                                    continue
+    
                             else:
-                                sys.stdout.write(time_string() + "Unknown message\n")
+                                # Disconnection
+                                sys.stdout.write(time_string() + "Client {}:{} disconnected.\n".format(client_info[0], client_info[1]))
                                 sys.stdout.flush()
-                                continue
+                                break
 
-                        else:
-                            # Disconnection
-                            sys.stdout.write(time_string() + "Client {}:{} disconnected.\n".format(client_info[0], client_info[1]))
-                            sys.stdout.flush()
-                            break
+                    except Exception as e:
+                        logger.exception('Exception in socket thread: ', e)
+                    finally:
+                        logger.info('Closing connection {}:{}'.format(client_info[0], client_info[1]))
+                        con.close()
 
             except Exception:
                 self.tcp.close()
