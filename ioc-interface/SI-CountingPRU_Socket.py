@@ -225,7 +225,7 @@ class Communication(Thread):
                                         # Individual TimeBase
                                         elif message[4] >= 0x21 and message[4] <= 0x28:
                                             channel = message[4] - 0x21
-                                            tbase = countingChannel[channel]["currenTimebase"]
+                                            tbase = countingChannel[channel]["currentTimebase"]
                                             con.send(sendVariable(message[4],tbase,2))
     
                                     # Group Read
@@ -246,7 +246,7 @@ class Communication(Thread):
                                             redis_db.set("globalTimebase", tbase)
                                             # Reply for individual timebases
                                             for channel in countingChannel.keys():
-                                                countingChannel[channel]["currenTimebase"] = tbase
+                                                countingChannel[channel]["currentTimebase"] = tbase
                                                 countingChannel[channel]["countingList"] = []
                                                 countingChannel[channel]["timebaseList"] = []
                                                 redis_db.hset("Timebase", channel, tbase)
@@ -288,7 +288,7 @@ class Communication(Thread):
                                             tbase = (message[5] << 8) + message[6]
                                             if tbase < TIMEBASE_MIN_VALUE:
                                                 tbase = TIMEBASE_MIN_VALUE
-                                            countingChannel[channel]["currenTimebase"] = tbase
+                                            countingChannel[channel]["currentTimebase"] = tbase
                                             countingChannel[channel]["countingList"] = []
                                             countingChannel[channel]["timebaseList"] = []
                                             redis_db.hset("Timebase", channel, tbase)
