@@ -71,6 +71,15 @@ def Counting_ms(time_base):
 
 
 
+# ----- LAST GATE DURATION [s]
+# Actual duration of the last counting gate, in seconds
+libCountingPRU.Last_gate.restype = ctypes.c_double
+
+def LastGate():
+    return libCountingPRU.Last_gate()
+
+
+
 
 # ----- CLOSING PRU
 def Close():
