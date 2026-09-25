@@ -85,35 +85,47 @@ int init_start_PRU(){
 }
 
 
-/* Actual duration of the last counting gate, in seconds */
+/* Actual duration of the last counting gate and its uncertainty, in seconds */
 static double last_gate = 0.0;
+static double last_gate_uncertainty = 0.0;
+
+
+/* Time from a to b, in seconds */
+static double elapsed(const struct timespec *a, const struct timespec *b){
+	return (b->tv_sec - a->tv_sec) + (b->tv_nsec - a->tv_nsec) * 1e-9;
+}
 
 
 /* Opens the gate, sleeps for time_base_ns, closes it and normalizes counts to
  * time_base_ns. The sleep only guarantees a minimum duration (Linux is not
  * real-time), so the actual gate is measured with CLOCK_MONOTONIC, which
- * includes the NTP frequency correction of the board crystal. */
+ * includes the NTP frequency correction of the board crystal.
+ * Each flag write is bracketed by two timestamps, since the process may be
+ * preempted between reading the clock and writing the flag: the midpoint is
+ * taken as the write instant and half the bracket width as its uncertainty. */
 static void gated_counting(uint64_t time_base_ns, uint32_t *data){
 
 	int i;
 	uint32_t raw;
-	double scale;
-	struct timespec ts, t0, t1;
+	double scale, start_width, stop_width;
+	struct timespec ts, t0a, t0b, t1a, t1b;
 
 	ts.tv_sec = time_base_ns / 1000000000ULL;
 	ts.tv_nsec = time_base_ns % 1000000000ULL;
 
 	// ----- Says it is time to start counting
-	clock_gettime(CLOCK_MONOTONIC, &t0);
+	clock_gettime(CLOCK_MONOTONIC, &t0a);
 	prudata[0] = START;
+	clock_gettime(CLOCK_MONOTONIC, &t0b);
 
 	// ----- Delay: pre-defined Time Base
 	while(nanosleep(&ts, &ts) != 0){
 	}
 
 	// ----- Says it is time to stop counting
+	clock_gettime(CLOCK_MONOTONIC, &t1a);
 	prudata[0] = STOP;
-	clock_gettime(CLOCK_MONOTONIC, &t1);
+	clock_gettime(CLOCK_MONOTONIC, &t1b);
 
 
 	// ----- Wait until values of both counters are available in shared RAM
@@ -123,8 +135,11 @@ static void gated_counting(uint64_t time_base_ns, uint32_t *data){
 	}
 
 
-	// ----- Measured gate duration
-	last_gate = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) * 1e-9;
+	// ----- Measured gate duration, from START midpoint to STOP midpoint
+	start_width = elapsed(&t0a, &t0b);
+	stop_width = elapsed(&t1a, &t1b);
+	last_gate = elapsed(&t0a, &t1a) + (stop_width - start_width) / 2.0;
+	last_gate_uncertainty = (start_width + stop_width) / 2.0;
 	scale = (time_base_ns * 1e-9) / last_gate;
 
 
@@ -157,6 +172,11 @@ void Counting_ms(long time_base, uint32_t *data){
 
 double Last_gate(){
 	return last_gate;
+}
+
+
+double Last_gate_uncertainty(){
+	return last_gate_uncertainty;
 }
 
 
