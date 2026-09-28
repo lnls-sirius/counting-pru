@@ -91,8 +91,8 @@ static double last_gate = 0.0;
 
 /* Opens the gate, sleeps for time_base_ns, closes it and normalizes counts to
  * time_base_ns. The sleep only guarantees a minimum duration (Linux is not
- * real-time), so the actual gate is measured with CLOCK_MONOTONIC_RAW, which
- * is neither stepped nor slewed by NTP. */
+ * real-time), so the actual gate is measured with CLOCK_MONOTONIC, which
+ * includes the NTP frequency correction of the board crystal. */
 static void gated_counting(uint64_t time_base_ns, uint32_t *data){
 
 	int i;
@@ -104,7 +104,7 @@ static void gated_counting(uint64_t time_base_ns, uint32_t *data){
 	ts.tv_nsec = time_base_ns % 1000000000ULL;
 
 	// ----- Says it is time to start counting
-	clock_gettime(CLOCK_MONOTONIC_RAW, &t0);
+	clock_gettime(CLOCK_MONOTONIC, &t0);
 	prudata[0] = START;
 
 	// ----- Delay: pre-defined Time Base
@@ -113,7 +113,7 @@ static void gated_counting(uint64_t time_base_ns, uint32_t *data){
 
 	// ----- Says it is time to stop counting
 	prudata[0] = STOP;
-	clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
+	clock_gettime(CLOCK_MONOTONIC, &t1);
 
 
 	// ----- Wait until values of both counters are available in shared RAM
