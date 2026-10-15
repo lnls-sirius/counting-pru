@@ -74,6 +74,18 @@ void Counting_ms(long time_base, uint32_t *data);
 
 
 
+/* LAST GATE DURATION
+ * Counter values returned by Counting/Counting_ms are normalized to the
+ * nominal time base using the measured gate duration.
+ * --Returns--
+ * Last_gate: actual duration of the last counting gate, in SECONDS
+ * Last_gate_uncertainty: uncertainty of that duration, in SECONDS
+*/
+double Last_gate();
+double Last_gate_uncertainty();
+
+
+
 /* CLOSING PRU
 */
 void close_PRU();

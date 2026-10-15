@@ -85,18 +85,47 @@ int init_start_PRU(){
 }
 
 
-void Counting(float time_base, uint32_t *data){
+/* Actual duration of the last counting gate and its uncertainty, in seconds */
+static double last_gate = 0.0;
+static double last_gate_uncertainty = 0.0;
+
+
+/* Time from a to b, in seconds */
+static double elapsed(const struct timespec *a, const struct timespec *b){
+	return (b->tv_sec - a->tv_sec) + (b->tv_nsec - a->tv_nsec) * 1e-9;
+}
+
+
+/* Opens the gate, sleeps for time_base_ns, closes it and normalizes counts to
+ * time_base_ns. The sleep only guarantees a minimum duration (Linux is not
+ * real-time), so the actual gate is measured with CLOCK_MONOTONIC, which
+ * includes the NTP frequency correction of the board crystal.
+ * Each flag write is bracketed by two timestamps, since the process may be
+ * preempted between reading the clock and writing the flag: the midpoint is
+ * taken as the write instant and half the bracket width as its uncertainty. */
+static void gated_counting(uint64_t time_base_ns, uint32_t *data){
 
 	int i;
+	uint32_t raw;
+	double scale, start_width, stop_width;
+	struct timespec ts, t0a, t0b, t1a, t1b;
+
+	ts.tv_sec = time_base_ns / 1000000000ULL;
+	ts.tv_nsec = time_base_ns % 1000000000ULL;
 
 	// ----- Says it is time to start counting
+	clock_gettime(CLOCK_MONOTONIC, &t0a);
 	prudata[0] = START;
+	clock_gettime(CLOCK_MONOTONIC, &t0b);
 
 	// ----- Delay: pre-defined Time Base
-	sleep(time_base);
+	while(nanosleep(&ts, &ts) != 0){
+	}
 
 	// ----- Says it is time to stop counting
+	clock_gettime(CLOCK_MONOTONIC, &t1a);
 	prudata[0] = STOP;
+	clock_gettime(CLOCK_MONOTONIC, &t1b);
 
 
 	// ----- Wait until values of both counters are available in shared RAM
@@ -106,9 +135,20 @@ void Counting(float time_base, uint32_t *data){
 	}
 
 
-	// ----- Get counting values
-	for(i=1; i<=8; i++)
-		data[i-1] = (prudata[(i*4)+3]<<24) + (prudata[(i*4)+2]<<16) + (prudata[(i*4)+1]<<8) + (prudata[(i*4)]);
+	// ----- Measured gate duration, from START midpoint to STOP midpoint
+	start_width = elapsed(&t0a, &t0b);
+	stop_width = elapsed(&t1a, &t1b);
+	last_gate = elapsed(&t0a, &t1a) + (stop_width - start_width) / 2.0;
+	last_gate_uncertainty = (start_width + stop_width) / 2.0;
+	scale = (time_base_ns * 1e-9) / last_gate;
+
+
+	// ----- Get counting values, normalized to the nominal time base
+	for(i=1; i<=8; i++){
+		raw = (prudata[(i*4)+3]<<24) + (prudata[(i*4)+2]<<16) + (prudata[(i*4)+1]<<8) + (prudata[(i*4)]);
+		// +0.5 rounds to nearest (cast truncates, which would bias counts by -0.5)
+		data[i-1] = (uint32_t)(raw * scale + 0.5);
+	}
 
 
 	// ----- Counting values successfully copied
@@ -120,41 +160,23 @@ void Counting(float time_base, uint32_t *data){
 }
 
 
+void Counting(float time_base, uint32_t *data){
+	gated_counting((uint64_t)(time_base * 1e9), data);
+}
+
+
 void Counting_ms(long time_base, uint32_t *data){
-
-        int i;
-        struct timespec ts;
-        ts.tv_sec = time_base / 1000;
-        ts.tv_nsec = (time_base % 1000) * 1000000;
-
-        // ----- Says it is time to start counting
-        prudata[0] = START;
-
-        // ----- Delay: pre-defined Time Base
-        nanosleep(&ts, &ts);
-
-        // ----- Says it is time to stop counting
-        prudata[0] = STOP;
+	gated_counting((uint64_t)time_base * 1000000ULL, data);
+}
 
 
-        // ----- Wait until values of both counters are available in shared RAM
-        while(prudata[1] != 0x55){
-        }
-        while(prudata[2] != 0x55){
-        }
+double Last_gate(){
+	return last_gate;
+}
 
 
-        // ----- Get counting values
-        for(i=1; i<=8; i++)
-                data[i-1] = (prudata[(i*4)+3]<<24) + (prudata[(i*4)+2]<<16) + (prudata[(i*4)+1]<<8) + (prudata[(i*4)]);
-
-
-        // ----- Counting values successfully copied
-        prudata[1] = 0;
-        prudata[2] = 0;
-
-
-        return;
+double Last_gate_uncertainty(){
+	return last_gate_uncertainty;
 }
 
 
